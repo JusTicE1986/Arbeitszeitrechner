@@ -1,0 +1,33 @@
+﻿<Window x:Class="Arbeitszeitrechner.View.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:Arbeitszeitrechner"
+        mc:Ignorable="d"
+        Title="MainWindow" Height="450" Width="800">
+    <Grid>
+        <DataGrid ItemsSource="{Binding Arbeitswochen}" AutoGenerateColumns="False">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="KW" Binding="{Binding Kalenderwoche}"/>
+                <DataGridTextColumn Header="Wochenarbeitszeit" Binding="{Binding WochenArbeitsZeitAnzeige}"/>
+            </DataGrid.Columns>
+
+            <DataGrid.RowDetailsTemplate>
+                <DataTemplate>
+                    <DataGrid ItemsSource="{Binding Arbeitstage}" AutoGenerateColumns="False">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Datum" Binding="{Binding Datum, StringFormat='dddd, dd.MM.yyyy'}"/>
+                            <DataGridTextColumn Header="Arbeitsbeginn" Binding="{Binding StartZeit}"/>
+                            <DataGridTextColumn Header="Arbeitsende" Binding="{Binding EndZeit}"/>
+                            <DataGridTextColumn Header="Pause" Binding="{Binding Pause}"/>
+                            <DataGridTextColumn Header="Arbeitszeit" Binding="{Binding TatsaechlicheArbeitszeit}"/>
+                            <DataGridTextColumn Header="Feiertag" Binding="{Binding FeiertagsName}"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DataTemplate>
+            </DataGrid.RowDetailsTemplate>
+            
+        </DataGrid>
+    </Grid>
+</Window>
