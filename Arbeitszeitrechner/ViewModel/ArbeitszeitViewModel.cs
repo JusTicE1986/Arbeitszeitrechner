@@ -13,18 +13,12 @@ namespace Arbeitszeitrechner.ViewModel
 {
     public class ArbeitszeitViewModel
     {
+        #region Eigenschaften
         public bool _verteilungAktiv = false;
         public ObservableCollection<ArbeitszeitWoche> Arbeitswochen { get; set; }
-        //public ObservableCollection<ArbeitszeitTag> Arbeitszeiten { get; set; }
+        #endregion
 
-        public ArbeitszeitViewModel()
-        {
-            GeneriereWochenweiseEintraege();
-            VerteileRestzeitAufWochentage();
-            Debug.WriteLine($"[Konstruktor] ArbeitszeitViewModel erstellt. Anzahl Wochen: {Arbeitswochen?.Count ?? 0}");
-
-        }
-
+        #region Methoden
         private void GeneriereWochenweiseEintraege()
         {
             int jahr = DateTime.Now.Year;
@@ -34,20 +28,12 @@ namespace Arbeitszeitrechner.ViewModel
                 .Select(i => new DateTime(jahr, 1, 1).AddDays(i))
                 .Select(datum => new ArbeitszeitTag(datum, Arbeitszeitmodell.Regelarbeitszeit)
                 {
-                    //Datum = datum,
-                    //Arbeitszeitmodell = Arbeitszeitmodell.Regelarbeitszeit,
-                    //StartZeit = (datum.DayOfWeek == DayOfWeek.Saturday || datum.DayOfWeek == DayOfWeek.Sunday) ? TimeSpan.Zero : new TimeSpan(6, 0, 0),
-                    //EndZeit = (datum.DayOfWeek == DayOfWeek.Saturday || datum.DayOfWeek == DayOfWeek.Sunday)? TimeSpan.Zero : new TimeSpan(14,30,0),
-
                     IsFeiertag = feiertage.ContainsKey(datum),
                     FeiertagsName = feiertage.ContainsKey(datum) ? feiertage[datum] : string.Empty
-
                 })
-
                 .ToList();
 
-            Arbeitswochen = new ObservableCollection<ArbeitszeitWoche>
-                (
+            Arbeitswochen = new ObservableCollection<ArbeitszeitWoche>(
                 alleTage
                 .GroupBy(tag => CultureInfo.CurrentCulture.Calendar.GetWeekOfYear(
                     tag.Datum,
@@ -58,58 +44,74 @@ namespace Arbeitszeitrechner.ViewModel
                     Kalenderwoche = gruppe.Key,
                     Arbeitstage = gruppe.ToList()
                 })
-                );
+            );
         }
 
         public void VerteileRestzeitAufWochentage()
         {
-            Debug.WriteLine($"✅ VerteileRestzeitAufWochentage() wurde aufgerufen. Anzahl Wochen: {Arbeitswochen?.Count ?? 0}");
             if (_verteilungAktiv)
-                Debug.WriteLine("⛔ VerteileRestzeitAufWochentage() wurde blockiert (Schutz-Flag aktiv)");
-            return;  // ➤ Schutz vor Endlosschleife
+            {
+                return;
+            }
+
             _verteilungAktiv = true;
 
             foreach (var woche in Arbeitswochen)
             {
                 var wocheMitAenderungen = woche.Arbeitstage
-                    .FirstOrDefault(tag => tag.GeaenderteKalenderwoche == woche.Kalenderwoche);
+                    .FirstOrDefault(tag => tag.Differenzzeit != TimeSpan.Zero && !tag.WurdeVerteilt);
 
                 if (wocheMitAenderungen == null)
-                    continue; // ➤ Keine geänderten Zeiten in dieser Woche → Keine Verteilung nötig
+                {
+                    continue;
+                }
 
                 for (int i = 0; i < woche.Arbeitstage.Count; i++)
                 {
                     var tag = woche.Arbeitstage[i];
-                    Debug.WriteLine($"Tag: {tag.Datum.ToShortDateString()} | Differenzzeit: {tag.Differenzzeit}");
-                    
 
-                    // ➤ Differenzzeit berechnen (Tatsächliche Arbeitszeit - Geplante Arbeitszeit)
-                    tag.Differenzzeit = tag.TatsaechlicheArbeitszeit - (tag.GeplanteArbeitszeit - tag.Pause);
+                    // Neue Debug-Ausgabe zur Überprüfung der Differenzzeit
 
-                    if (tag.Differenzzeit == TimeSpan.Zero)
-                        continue; // ➤ Keine Abweichung = Keine Verteilung erforderlich
-
-                    // ➤ Nachfolgende Arbeitstage der selben Woche inklusive Freitag ermitteln
-                    var restlicheArbeitstage = woche.Arbeitstage
-                        .Skip(i + 1)
-                        .ToList(); // ➤ Freitag wird hier mit einbezogen
-
-                    if (!restlicheArbeitstage.Any())
-                        continue; // ➤ Keine verbleibenden Arbeitstage mehr
-
-                    // ➤ Differenzzeit gleichmäßig aufteilen
-                    TimeSpan aufteilung = TimeSpan.FromMinutes(tag.Differenzzeit.TotalMinutes / restlicheArbeitstage.Count);
-
-                    // ➤ Verteilung auf nachfolgende Tage
-                    foreach (var folgetag in restlicheArbeitstage)
+                    if (tag.Differenzzeit == TimeSpan.Zero || tag.WurdeVerteilt)
                     {
-                        folgetag.SetzeEndzeitManuell(folgetag.EndZeit + aufteilung);
+                        continue;
                     }
 
-                    // ➤ Differenzzeit wird auf 0 gesetzt, da sie verteilt wurde
-                    tag.Differenzzeit = TimeSpan.Zero;
+                    var restlicheArbeitstage = woche.Arbeitstage
+                        .Skip(i + 1)
+                        .Where(t => !t.IstWochenende && !t.WurdeVerteilt)
+                        .ToList();
+
+                    if (!restlicheArbeitstage.Any())
+                    {
+                        continue;
+                    }
+
+                    TimeSpan aufteilung = TimeSpan.FromMinutes(tag.Differenzzeit.TotalMinutes / restlicheArbeitstage.Count);
+
+
+                    foreach (var folgetag in restlicheArbeitstage)
+                    {
+                        folgetag.SetzeEndzeitManuell(folgetag.EndZeit - aufteilung);
+                        folgetag.WurdeVerteilt = true; // ➤ Markiere Tag als verteilt
+                    }
+
+                    tag.Differenzzeit = TimeSpan.Zero;  // ➤ Nach erfolgreicher Verteilung auf Null setzen
+                    tag.WurdeVerteilt = true;           // ➤ Markiere auch diesen Tag als verteilt
                 }
             }
+
+            _verteilungAktiv = false;
         }
+
+
+        #endregion
+
+        #region Konstruktor
+        public ArbeitszeitViewModel()
+        {
+            GeneriereWochenweiseEintraege();
+        }
+        #endregion
     }
 }

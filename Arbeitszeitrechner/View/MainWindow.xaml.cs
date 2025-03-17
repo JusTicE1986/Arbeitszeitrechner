@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using System.Diagnostics;
+using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
@@ -21,5 +22,6 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         DataContext = new ArbeitszeitViewModel();
+        Debug.WriteLine("🟢 ViewModel wurde im MainWindow korrekt gesetzt.");
     }
 }
