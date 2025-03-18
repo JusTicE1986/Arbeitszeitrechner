@@ -1,101 +1,75 @@
 ﻿using Arbeitszeitrechner;
 using Arbeitszeitrechner.Model;
+using Arbeitszeitrechner.Services;
 using Arbeitszeitrechner.ViewModel;
 using CommunityToolkit.Mvvm.ComponentModel;
+using System;
 using System.Diagnostics;
-using System.Globalization;
 
 public partial class ArbeitszeitTag : ObservableObject
 {
     #region Eigenschaften
-
     public Arbeitszeitmodell Arbeitszeitmodell { get; set; }
     public DateTime Datum { get; set; }
+    private readonly ArbeitszeitBerechnungsService _berechnungsService = new ArbeitszeitBerechnungsService();
 
+    [ObservableProperty]
     private TimeSpan _startZeit;
-    public TimeSpan StartZeit
+    partial void OnStartZeitChanged(TimeSpan oldValue, TimeSpan newValue)
     {
-        get => _startZeit;
-        set
+        BerechneArbeitszeiten();
+        App.Current.Dispatcher.Invoke(() =>
         {
-            if (_startZeit == value) return; // ➤ Schutz vor doppeltem Aufruf
-            if (SetProperty(ref _startZeit, value))
-            {
-                if (!_endZeitManuellGesetzt)
-                {
-                    EndZeit = _startZeit + BerechneStandardArbeitszeit();
-                }
+            (App.Current.MainWindow.DataContext as ArbeitszeitViewModel)
+                ?.VerteileRestzeitAutomatisch();
+        });
 
-                BerechneArbeitszeiten();
-
-                // Nur wenn wirklich eine Differenzzeit vorliegt
-                if (Differenzzeit != TimeSpan.Zero)
-                {
-                    Debug.WriteLine($"🟢 Startzeit geändert: {StartZeit}");
-                    App.Current.Dispatcher.Invoke(() =>
-                    {
-                        (App.Current.MainWindow.DataContext as ArbeitszeitViewModel)?.VerteileRestzeitAufWochentage();
-                    });
-                }
-            }
-        }
     }
 
+    [ObservableProperty]
     private TimeSpan _endZeit;
-    public TimeSpan EndZeit
+    partial void OnEndZeitChanged(TimeSpan oldValue, TimeSpan newValue)
     {
-        get => _endZeit;
-        set
+        BerechneArbeitszeiten();
+        App.Current.Dispatcher.Invoke(() =>
         {
-            if (_endZeit == value) return; // ➤ Schutz vor doppeltem Aufruf
-            if (SetProperty(ref _endZeit, value))
-            {
-                _endZeitManuellGesetzt = true;
-                BerechneArbeitszeiten();
+            (App.Current.MainWindow.DataContext as ArbeitszeitViewModel)
+                ?.VerteileRestzeitAutomatisch();
+        });
 
-                // Nur bei echter Differenzzeit Verteilung starten
-                if (Differenzzeit != TimeSpan.Zero)
-                {
-                    Debug.WriteLine($"🟢 Endzeit geändert: {EndZeit}");
-                    App.Current.Dispatcher.Invoke(() =>
-                    {
-                        (App.Current.MainWindow.DataContext as ArbeitszeitViewModel)?.VerteileRestzeitAufWochentage();
-                    });
-                }
-            }
-        }
     }
-
-    public TimeSpan Differenzzeit { get; set; } = TimeSpan.Zero;
-    public TimeSpan GeplanteArbeitszeit => BerechneStandardArbeitszeit();
-
-    private bool _endZeitManuellGesetzt = false;
-
     [ObservableProperty]
     private TimeSpan _gesamtArbeitsZeit;
+
     [ObservableProperty]
     private TimeSpan _pause;
+
     [ObservableProperty]
     private TimeSpan _tatsaechlicheArbeitszeit;
+    private bool _berechnungBereitsDurchgeführt;
 
-    public int GeaenderteKalenderwoche { get; set; } = -1;
+    public TimeSpan Differenzzeit { get; private set; } = TimeSpan.Zero;
+    public TimeSpan GeplanteArbeitszeit => _berechnungsService.BestimmeStandardArbeitszeit(Arbeitszeitmodell);
+
     public bool IsFeiertag { get; set; }
     public string FeiertagsName { get; set; } = string.Empty;
     public bool IstWochenende => Datum.DayOfWeek == DayOfWeek.Saturday || Datum.DayOfWeek == DayOfWeek.Sunday;
-    public bool WurdeVerteilt { get; set; } = false;  // ➤ Neues Flag zur Verteilungssteuerung
-
+    public bool WurdeVerteilt { get; set; } = false;
 
     #endregion
+
     #region Methoden
     public void SetzeEndzeitManuell(TimeSpan neueEndzeit)
     {
-        if (_endZeit == neueEndzeit) return;  // ➤ Schutz vor mehrfacher Ausführung
-        _endZeitManuellGesetzt = true;
-        EndZeit = neueEndzeit;
+        if (_endZeit == neueEndzeit) return;
+        _endZeit = neueEndzeit;
+        BerechneArbeitszeiten();
     }
 
-    private void BerechneArbeitszeiten()
+    public void BerechneArbeitszeiten()
     {
+        if (_berechnungBereitsDurchgeführt) return;
+        _berechnungBereitsDurchgeführt = true;
 
         GesamtArbeitsZeit = EndZeit > StartZeit ? EndZeit - StartZeit : TimeSpan.Zero;
 
@@ -118,20 +92,12 @@ public partial class ArbeitszeitTag : ObservableObject
 
         TatsaechlicheArbeitszeit = GesamtArbeitsZeit - Pause;
 
-        // ➤ Korrigierte Differenzzeitberechnung
-        Differenzzeit = TatsaechlicheArbeitszeit - (GeplanteArbeitszeit - Pause);
-        
+        Debug.WriteLine($"🟠 BerechneArbeitszeiten() → Tatsächliche Arbeitszeit: {TatsaechlicheArbeitszeit}");
+        Debug.WriteLine($"🟠 BerechneArbeitszeiten() → Differenzzeit: {Differenzzeit}");
+        _berechnungBereitsDurchgeführt = false;
+        OnPropertyChanged(nameof(EndZeit));
     }
 
-    private TimeSpan BerechneStandardArbeitszeit()
-    {
-        return Arbeitszeitmodell switch
-        {
-            Arbeitszeitmodell.VierzigStunden => new TimeSpan(8, 30, 0),
-            Arbeitszeitmodell.VerkürzteVollzeit => new TimeSpan(7, 30, 0),
-            _ => new TimeSpan(8, 6, 0)
-        };
-    }
     #endregion
 
     #region Konstruktor
@@ -140,15 +106,19 @@ public partial class ArbeitszeitTag : ObservableObject
         Datum = datum;
         Arbeitszeitmodell = arbeitszeitmodell;
 
-        StartZeit = IstWochenende || IsFeiertag
-            ? TimeSpan.Zero
-            : new TimeSpan(8, 0, 0);
+        // Korrekte Initialisierung sicherstellen
+        if (!IstWochenende && !IsFeiertag)
+        {
+            StartZeit = new TimeSpan(8, 0, 0);   // Standard-Startzeit
+            EndZeit = StartZeit + _berechnungsService.BestimmeStandardArbeitszeit(Arbeitszeitmodell.Regelarbeitszeit);
+        }
+        else
+        {
+            StartZeit = TimeSpan.Zero;
+            EndZeit = TimeSpan.Zero;
+        }
 
-        EndZeit = IstWochenende || IsFeiertag
-            ? TimeSpan.Zero
-            : StartZeit + BerechneStandardArbeitszeit();
-
-        BerechneArbeitszeiten();  // Initialberechnung der Arbeitszeiten
+        BerechneArbeitszeiten();
     }
     #endregion
 }

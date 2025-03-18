@@ -9,6 +9,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
+using Arbeitszeitrechner.Services;
 using Arbeitszeitrechner.ViewModel;
 
 namespace Arbeitszeitrechner.View;
@@ -21,7 +22,15 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-        DataContext = new ArbeitszeitViewModel();
+
+        var wochenService = new WochenService();
+        var feiertagsService = new FeiertagsService();
+        var arbeitszeitBerechnungsService = new ArbeitszeitBerechnungsService();
+
+        DataContext = new ArbeitszeitViewModel(
+            wochenService,
+            feiertagsService,
+            arbeitszeitBerechnungsService);
         Debug.WriteLine("🟢 ViewModel wurde im MainWindow korrekt gesetzt.");
     }
 }

@@ -4,30 +4,99 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:Arbeitszeitrechner"
+        xmlns:conv="clr-namespace:Arbeitszeitrechner.Converters"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
+        Title="MainWindow" Height="700" Width="1000" FontSize="14" FontFamily="Bahnschrift">
+    <Window.Resources>
+        <conv:BoolToColorConverter x:Key="BoolToColorConverter"/>
+    </Window.Resources>
     <Grid>
-        <DataGrid ItemsSource="{Binding Arbeitswochen}" AutoGenerateColumns="False">
+        <DataGrid ItemsSource="{Binding Arbeitswochen}" 
+                  AutoGenerateColumns="False"
+                  RowHeight="35">
+            <DataGrid.RowStyle>
+                <Style TargetType="DataGridRow">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding IstAktuelleWoche}" Value="True">
+                            <Setter Property="Background" Value="#FFF3E0"/>
+                            <!-- Dezentes Orange -->
+                        </DataTrigger>
+
+                        <DataTrigger Binding="{Binding EnthaeltFeiertag}" Value="True">
+                            <Setter Property="Background" Value="#E3F2FD"/>
+                            <!-- Hellblau -->
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </DataGrid.RowStyle>
             <DataGrid.Columns>
-                <DataGridTextColumn Header="KW" Binding="{Binding Kalenderwoche}"/>
-                <DataGridTextColumn Header="Wochenarbeitszeit" Binding="{Binding WochenArbeitsZeitAnzeige}"/>
+                <DataGridTextColumn Header="KW" 
+                                    Binding="{Binding Kalenderwoche}"/>
+                <DataGridTextColumn Header="Wochenarbeitszeit" 
+                                    Binding="{Binding WochenArbeitsZeitAnzeige}"/>
+                <DataGridTextColumn Header="Tatsächliche Arbeitszeit"
+                                    Binding="{Binding TatsaechlicheWochenArbeitszeitAnzeige}"/>
+                <DataGridTemplateColumn Header="Differenz">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Border Background="{Binding IstImSoll, Converter={StaticResource BoolToColorConverter}}"
+                                    CornerRadius="5"
+                                    Padding="5">
+                                <TextBlock Text="{Binding Differenz}" 
+                                           HorizontalAlignment="Center" 
+                                           VerticalAlignment="Center"/>
+                            </Border>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
             </DataGrid.Columns>
 
             <DataGrid.RowDetailsTemplate>
                 <DataTemplate>
-                    <DataGrid ItemsSource="{Binding Arbeitstage}" AutoGenerateColumns="False">
-                        <DataGrid.Columns>
-                            <DataGridTextColumn Header="Datum" Binding="{Binding Datum, StringFormat='dddd, dd.MM.yyyy'}"/>
-                            <DataGridTextColumn Header="Arbeitsbeginn" Binding="{Binding StartZeit}"/>
-                            <DataGridTextColumn Header="Arbeitsende" Binding="{Binding EndZeit}"/>
-                            <DataGridTextColumn Header="Pause" Binding="{Binding Pause}"/>
-                            <DataGridTextColumn Header="Arbeitszeit" Binding="{Binding TatsaechlicheArbeitszeit}"/>
-                            <DataGridTextColumn Header="Feiertag" Binding="{Binding FeiertagsName}"/>
-                        </DataGrid.Columns>
-                    </DataGrid>
+                        <DataGrid ItemsSource="{Binding Arbeitstage}" 
+                                  AutoGenerateColumns="False">
+                            <DataGrid.Columns >
+                                <DataGridTextColumn Header="Datum" 
+                                                    Binding="{Binding Datum, StringFormat='dddd, dd.MM.yyyy'}"/>
+                                <DataGridTemplateColumn Header="Arbeitsbeginn">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding StartZeit}" />
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                    <DataGridTemplateColumn.CellEditingTemplate>
+                                        <DataTemplate>
+                                            <TextBox Text="{Binding StartZeit, UpdateSourceTrigger=PropertyChanged}"
+                                                     VerticalAlignment="Center" 
+                                                     HorizontalAlignment="Center"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellEditingTemplate>
+                                </DataGridTemplateColumn>
+
+                                <DataGridTemplateColumn Header="Arbeitsende">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding EndZeit}" />
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                    <DataGridTemplateColumn.CellEditingTemplate>
+                                        <DataTemplate>
+                                            <TextBox Text="{Binding EndZeit, UpdateSourceTrigger=PropertyChanged}"
+                                                     VerticalAlignment="Center" 
+                                                     HorizontalAlignment="Center"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellEditingTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTextColumn Header="Pause" 
+                                                    Binding="{Binding Pause}"/>
+                                <DataGridTextColumn Header="Arbeitszeit" 
+                                                    Binding="{Binding TatsaechlicheArbeitszeit}"/>
+                                <DataGridTextColumn Header="Feiertag" 
+                                                    Binding="{Binding FeiertagsName}"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
                 </DataTemplate>
             </DataGrid.RowDetailsTemplate>
-            
         </DataGrid>
     </Grid>
 </Window>
