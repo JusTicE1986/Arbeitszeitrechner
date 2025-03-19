@@ -92,9 +92,13 @@ public partial class ArbeitszeitTag : ObservableObject
 
         TatsaechlicheArbeitszeit = GesamtArbeitsZeit - Pause;
 
-        Debug.WriteLine($"🟠 BerechneArbeitszeiten() → Tatsächliche Arbeitszeit: {TatsaechlicheArbeitszeit}");
-        Debug.WriteLine($"🟠 BerechneArbeitszeiten() → Differenzzeit: {Differenzzeit}");
+        // 🔥 NEU: Differenzzeit korrekt setzen und melden
+        Differenzzeit = TatsaechlicheArbeitszeit - GeplanteArbeitszeit;
+        OnPropertyChanged(nameof(Differenzzeit));
+
+
         _berechnungBereitsDurchgeführt = false;
+
         OnPropertyChanged(nameof(EndZeit));
     }
 

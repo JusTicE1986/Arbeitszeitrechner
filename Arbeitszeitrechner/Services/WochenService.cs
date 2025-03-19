@@ -84,7 +84,6 @@ namespace Arbeitszeitrechner.Services
             {
                 var wocheMitAenderungen = woche.Arbeitstage
                     .FirstOrDefault(tag => tag.Differenzzeit != TimeSpan.Zero && !tag.WurdeVerteilt);
-
                 if(wocheMitAenderungen == null)
                 {
                     continue;
